@@ -90,6 +90,50 @@ app.get("/api/bookings", async (req, res) => {
   }
 });
 
+app.patch("/api/bookings/:id/status", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const allowedStatuses = ["pending", "confirmed", "cancelled"];
+
+    if (!allowedStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid booking status",
+      });
+    }
+
+    const result = await pool.query(
+      `UPDATE bookings
+       SET status = $1
+       WHERE id = $2
+       RETURNING *`,
+      [status, id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Booking status updated successfully",
+      booking: result.rows[0],
+    });
+  } catch (error) {
+    console.error("Failed to update booking status:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Unable to update booking status",
+    });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Backend server running on http://localhost:${PORT}`);
 });

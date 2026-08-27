@@ -26,31 +26,37 @@ function App() {
   }
 
   const handleSubmit = async (event) => {
-  event.preventDefault()
+    event.preventDefault()
 
-  try {
-    const response = await fetch('http://localhost:5000/api/bookings', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(formData),
-    })
+    try {
+      const response = await fetch('http://localhost:5000/api/bookings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      })
 
-    const data = await response.json()
+      const data = await response.json()
 
-    if (data.success) {
-      setSubmitted(true)
-    } else {
-      alert(data.message)
+      if (data.success) {
+        setSubmitted(true)
+      } else {
+        alert(data.message)
+      }
+    } catch (error) {
+      console.error('Booking submission failed:', error)
+      alert('Unable to connect to the booking server.')
     }
-  } catch (error) {
-    console.error('Booking submission failed:', error)
-    alert('Unable to connect to the booking server.')
   }
-}
 
   const today = new Date().toISOString().split('T')[0]
+
+  const isAdminPage = window.location.pathname === '/admin'
+
+  if (isAdminPage) {
+    return <AdminDashboard />
+  }
 
   return (
     <div className="app">
@@ -283,8 +289,6 @@ function App() {
           </form>
         </section>
       </main>
-
-      <AdminDashboard />
 
       <footer>
         <p>
