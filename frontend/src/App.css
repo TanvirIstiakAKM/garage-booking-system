@@ -844,3 +844,277 @@ footer p {
     min-width: 0;
   }
 }
+
+/* =========================================
+   EMAIL VERIFICATION
+   ========================================= */
+
+.verification-page {
+  min-height: 100vh;
+  padding: 40px 20px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background:
+    radial-gradient(
+      circle at 50% 0%,
+      rgba(36, 116, 235, 0.10),
+      transparent 38%
+    ),
+    linear-gradient(135deg, #ffffff 0%, #f5f7fa 100%);
+}
+
+.verification-card {
+  width: 100%;
+  max-width: 520px;
+  padding: 52px 45px;
+
+  border: 1px solid #e1e7ef;
+  border-radius: 24px;
+
+  background: #ffffff;
+
+  text-align: center;
+
+  box-shadow: 0 25px 60px rgba(20, 35, 60, 0.10);
+}
+
+.verification-icon {
+  width: 76px;
+  height: 76px;
+
+  display: grid;
+  place-items: center;
+
+  margin: 0 auto 28px;
+
+  border-radius: 50%;
+
+  background: #eaf2ff;
+  color: #1769e0;
+
+  font-size: 32px;
+  font-weight: 800;
+}
+
+.verification-card .eyebrow {
+  margin-bottom: 14px;
+}
+
+.verification-card h1 {
+  margin: 0;
+
+  color: #101827;
+
+  font-size: clamp(30px, 5vw, 40px);
+  line-height: 1.15;
+  letter-spacing: -1.2px;
+}
+
+.verification-message {
+  max-width: 420px;
+
+  margin: 20px auto 0;
+
+  color: #667085;
+
+  font-size: 16px;
+  line-height: 1.7;
+}
+
+.verification-success,
+.verification-error {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  margin-top: 28px;
+  padding: 18px 20px;
+
+  border-radius: 12px;
+
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.verification-success {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #047857;
+}
+
+.verification-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+}
+
+.verification-success strong {
+  font-weight: 800;
+}
+
+.verification-success span,
+.verification-error span {
+  display: block;
+}
+
+.verification-button {
+  width: 100%;
+  margin-top: 28px;
+}
+
+@media (max-width: 600px) {
+  .verification-page {
+    padding: 24px 16px;
+  }
+
+  .verification-card {
+    padding: 40px 25px;
+    border-radius: 20px;
+  }
+
+  .verification-icon {
+    width: 68px;
+    height: 68px;
+
+    margin-bottom: 24px;
+
+    font-size: 28px;
+  }
+
+  .verification-card h1 {
+    font-size: 30px;
+  }
+
+  .verification-message {
+    font-size: 15px;
+  }
+}
+
+/* =========================================
+   STAFF REGISTRATION
+   ========================================= */
+
+.registration-card {
+  max-width: 560px;
+}
+
+.registration-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+
+  margin-top: 30px;
+
+  text-align: left;
+}
+
+.registration-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.registration-form-group label {
+  color: #344054;
+
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.registration-form-group input {
+  width: 100%;
+  height: 50px;
+
+  padding: 0 15px;
+
+  border: 1px solid #d5dce5;
+  border-radius: 9px;
+
+  background: #ffffff;
+  color: #172033;
+
+  outline: none;
+
+  font-family: inherit;
+  font-size: 15px;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.registration-form-group input::placeholder {
+  color: #98a2b3;
+}
+
+.registration-form-group input:focus {
+  border-color: #1769e0;
+
+  box-shadow: 0 0 0 3px rgba(23, 105, 224, 0.1);
+}
+
+.registration-form .verification-button {
+  margin-top: 6px;
+}
+
+.registration-form .verification-button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.secondary-link {
+  display: inline-block;
+
+  margin-top: 20px;
+
+  color: #1769e0;
+
+  font-size: 14px;
+  font-weight: 700;
+
+  transition: color 0.2s ease;
+}
+
+.secondary-link:hover {
+  color: #0f58c4;
+  text-decoration: underline;
+}
+
+@media (max-width: 600px) {
+  .registration-card {
+    max-width: 100%;
+  }
+
+  .registration-form {
+    gap: 16px;
+    margin-top: 26px;
+  }
+
+  .registration-form-group input {
+    height: 48px;
+  }
+}
+
+/* =========================================
+   STAFF LOGIN
+   ========================================= */
+
+.login-card {
+  max-width: 520px;
+}
+
+.login-card .registration-form {
+  margin-top: 28px;
+}
+
+.login-card .verification-button {
+  margin-top: 8px;
+}
+
+.login-card .secondary-link {
+  margin-top: 22px;
+}

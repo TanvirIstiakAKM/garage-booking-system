@@ -1,6 +1,445 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import './App.css'
 import AdminDashboard from './AdminDashboard'
+
+function EmailVerification() {
+  const [status, setStatus] = useState('verifying')
+  const [message, setMessage] = useState('Verifying your email address...')
+  const verificationStarted = useRef(false)
+
+  useEffect(() => {
+    if (verificationStarted.current) {
+      return
+    }
+
+    verificationStarted.current = true
+
+    const verifyEmail = async () => {
+      const params = new URLSearchParams(window.location.search)
+      const token = params.get('token')
+
+      if (!token) {
+        setStatus('error')
+        setMessage('This verification link is invalid or incomplete.')
+        return
+      }
+
+      try {
+        const response = await fetch(
+          `http://localhost:5000/api/auth/verify-email?token=${encodeURIComponent(token)}`
+        )
+
+        const data = await response.json()
+
+        if (data.success) {
+          setStatus('success')
+          setMessage(data.message)
+        } else {
+          setStatus('error')
+          setMessage(data.message || 'Unable to verify your email address.')
+        }
+      } catch (error) {
+        console.error('Email verification failed:', error)
+        setStatus('error')
+        setMessage(
+          'Unable to connect to the verification server. Please try again later.'
+        )
+      }
+    }
+
+    verifyEmail()
+  }, [])
+
+  return (
+    <div className="verification-page">
+      <div className="verification-card">
+        <div className="verification-icon">
+          {status === 'verifying' && '✉️'}
+          {status === 'success' && '✓'}
+          {status === 'error' && '⚠️'}
+        </div>
+
+        <p className="eyebrow">GARAGE BOOKING SYSTEM</p>
+
+        <h1>
+          {status === 'verifying' && 'Verifying Your Email'}
+          {status === 'success' && 'Email Verified'}
+          {status === 'error' && 'Verification Unsuccessful'}
+        </h1>
+
+        <p className="verification-message">
+          {message}
+        </p>
+
+        {status === 'success' && (
+          <div className="verification-success">
+            <strong>Your staff account is now verified.</strong>
+            <span>
+              You can continue to the staff login page.
+            </span>
+          </div>
+        )}
+
+        {status === 'error' && (
+          <div className="verification-error">
+            <span>
+              The verification link may be invalid or expired.
+            </span>
+          </div>
+        )}
+
+        {status === 'success' && (
+          <a href="/login" className="primary-button verification-button">
+            Go to Staff Login
+          </a>
+        )}
+
+        {status === 'error' && (
+          <a href="/" className="primary-button verification-button">
+            Return to Home
+          </a>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function StaffRegistration() {
+  const [formData, setFormData] = useState({
+    full_name: '',
+    email: '',
+    password: '',
+    confirm_password: '',
+  })
+
+  const [status, setStatus] = useState('idle')
+  const [message, setMessage] = useState('')
+
+  const handleChange = (event) => {
+    const { name, value } = event.target
+
+    setFormData((currentData) => ({
+      ...currentData,
+      [name]: value,
+    }))
+
+    setStatus('idle')
+    setMessage('')
+  }
+
+  const handleSubmit = async (event) => {
+    event.preventDefault()
+
+    if (formData.password !== formData.confirm_password) {
+      setStatus('error')
+      setMessage('Passwords do not match.')
+      return
+    }
+
+    if (formData.password.length < 8) {
+      setStatus('error')
+      setMessage('Password must be at least 8 characters long.')
+      return
+    }
+
+    setStatus('submitting')
+    setMessage('Creating your staff account...')
+
+    try {
+      const response = await fetch(
+        'http://localhost:5000/api/auth/register',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            full_name: formData.full_name,
+            email: formData.email,
+            password: formData.password,
+          }),
+        }
+      )
+
+      const data = await response.json()
+
+      if (data.success) {
+        setStatus('success')
+        setMessage(
+          data.message ||
+          'Registration successful. Please check your email to verify your account.'
+        )
+
+        setFormData({
+          full_name: '',
+          email: '',
+          password: '',
+          confirm_password: '',
+        })
+      } else {
+        setStatus('error')
+        setMessage(
+          data.message || 'Unable to create your staff account.'
+        )
+      }
+    } catch (error) {
+      console.error('Staff registration failed:', error)
+      setStatus('error')
+      setMessage(
+        'Unable to connect to the registration server. Please try again later.'
+      )
+    }
+  }
+
+  return (
+    <div className="verification-page">
+      <div className="verification-card registration-card">
+        <div className="verification-icon">🔐</div>
+
+        <p className="eyebrow">GARAGE BOOKING SYSTEM</p>
+
+        <h1>Create Staff Account</h1>
+
+        <p className="verification-message">
+          Register for staff access to the garage booking management system.
+        </p>
+
+        <form className="registration-form" onSubmit={handleSubmit}>
+          <div className="registration-form-group">
+            <label htmlFor="full_name">Full Name</label>
+
+            <input
+              id="full_name"
+              name="full_name"
+              type="text"
+              placeholder="Enter your full name"
+              value={formData.full_name}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          <div className="registration-form-group">
+            <label htmlFor="email">Email Address</label>
+
+            <input
+              id="email"
+              name="email"
+              type="email"
+              placeholder="Enter your email address"
+              value={formData.email}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          <div className="registration-form-group">
+            <label htmlFor="password">Password</label>
+
+            <input
+              id="password"
+              name="password"
+              type="password"
+              placeholder="Minimum 8 characters"
+              value={formData.password}
+              onChange={handleChange}
+              minLength="8"
+              required
+            />
+          </div>
+
+          <div className="registration-form-group">
+            <label htmlFor="confirm_password">Confirm Password</label>
+
+            <input
+              id="confirm_password"
+              name="confirm_password"
+              type="password"
+              placeholder="Re-enter your password"
+              value={formData.confirm_password}
+              onChange={handleChange}
+              minLength="8"
+              required
+            />
+          </div>
+
+          <button
+            type="submit"
+            className="primary-button verification-button"
+            disabled={status === 'submitting'}
+          >
+            {status === 'submitting'
+              ? 'Creating Account...'
+              : 'Create Staff Account'}
+          </button>
+        </form>
+
+        {status === 'success' && (
+          <div className="verification-success">
+            <strong>Registration successful.</strong>
+
+            <span>
+              Please check your email and click the verification link
+              to activate your staff account.
+            </span>
+          </div>
+        )}
+
+        {status === 'error' && (
+          <div className="verification-error">
+            <span>{message}</span>
+          </div>
+        )}
+
+        {status === 'success' && (
+          <a href="/" className="secondary-link">
+            Return to Home
+          </a>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function StaffLogin() {
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+  })
+
+  const [status, setStatus] = useState('idle')
+  const [message, setMessage] = useState('')
+
+  const handleChange = (event) => {
+    const { name, value } = event.target
+
+    setFormData((currentData) => ({
+      ...currentData,
+      [name]: value,
+    }))
+
+    setStatus('idle')
+    setMessage('')
+  }
+
+  const handleSubmit = async (event) => {
+    event.preventDefault()
+
+    setStatus('submitting')
+    setMessage('Signing you in...')
+
+    try {
+      const response = await fetch(
+        'http://localhost:5000/api/auth/login',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: formData.email,
+            password: formData.password,
+          }),
+        }
+      )
+
+      const data = await response.json()
+
+      if (data.success) {
+        localStorage.setItem('garage_staff_token', data.token)
+        localStorage.setItem(
+          'garage_staff_user',
+          JSON.stringify(data.staff)
+        )
+
+        setStatus('success')
+        setMessage('Login successful. Redirecting to the staff dashboard...')
+
+        window.location.href = '/admin'
+      } else {
+        setStatus('error')
+        setMessage(
+          data.message || 'Unable to sign in. Please check your details.'
+        )
+      }
+    } catch (error) {
+      console.error('Staff login failed:', error)
+
+      setStatus('error')
+      setMessage(
+        'Unable to connect to the login server. Please try again later.'
+      )
+    }
+  }
+
+  return (
+    <div className="verification-page">
+      <div className="verification-card login-card">
+        <div className="verification-icon">🔐</div>
+
+        <p className="eyebrow">GARAGE BOOKING SYSTEM</p>
+
+        <h1>Staff Login</h1>
+
+        <p className="verification-message">
+          Sign in to access the garage booking management system.
+        </p>
+
+        <form className="registration-form" onSubmit={handleSubmit}>
+          <div className="registration-form-group">
+            <label htmlFor="login-email">Email Address</label>
+
+            <input
+              id="login-email"
+              name="email"
+              type="email"
+              placeholder="Enter your email address"
+              value={formData.email}
+              onChange={handleChange}
+              autoComplete="email"
+              required
+            />
+          </div>
+
+          <div className="registration-form-group">
+            <label htmlFor="login-password">Password</label>
+
+            <input
+              id="login-password"
+              name="password"
+              type="password"
+              placeholder="Enter your password"
+              value={formData.password}
+              onChange={handleChange}
+              autoComplete="current-password"
+              required
+            />
+          </div>
+
+          <button
+            type="submit"
+            className="primary-button verification-button"
+            disabled={status === 'submitting'}
+          >
+            {status === 'submitting'
+              ? 'Signing In...'
+              : 'Sign In'}
+          </button>
+        </form>
+
+        {status === 'error' && (
+          <div className="verification-error">
+            <span>{message}</span>
+          </div>
+        )}
+
+        <a href="/register" className="secondary-link">
+          Create Staff Account
+        </a>
+      </div>
+    </div>
+  )
+}
 
 function App() {
   const [formData, setFormData] = useState({
@@ -52,9 +491,21 @@ function App() {
 
   const today = new Date().toISOString().split('T')[0]
 
-  const isAdminPage = window.location.pathname === '/admin'
+  const currentPath = window.location.pathname
 
-  if (isAdminPage) {
+  if (currentPath === '/verify-email') {
+    return <EmailVerification />
+  }
+
+  if (currentPath === '/register') {
+    return <StaffRegistration />
+  }
+
+  if (currentPath === '/login') {
+    return <StaffLogin />
+  }
+
+  if (currentPath === '/admin') {
     return <AdminDashboard />
   }
 

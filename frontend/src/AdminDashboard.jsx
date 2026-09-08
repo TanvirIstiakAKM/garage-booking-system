@@ -64,12 +64,15 @@ function AdminDashboard() {
 
     const updateBookingStatus = async (id, status) => {
         try {
+            const token = localStorage.getItem('garage_staff_token')
+
             const response = await fetch(
                 `http://localhost:5000/api/bookings/${id}/status`,
                 {
                     method: 'PATCH',
                     headers: {
                         'Content-Type': 'application/json',
+                        Authorization: `Bearer ${token}`,
                     },
                     body: JSON.stringify({ status }),
                 }
@@ -99,7 +102,16 @@ function AdminDashboard() {
             setLoading(true)
             setError('')
 
-            const response = await fetch('http://localhost:5000/api/bookings')
+            const token = localStorage.getItem('garage_staff_token')
+
+            const response = await fetch(
+                'http://localhost:5000/api/bookings',
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                }
+            )
             const data = await response.json()
 
             if (data.success) {
