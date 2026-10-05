@@ -517,6 +517,26 @@ app.post("/api/bookings", async (req, res) => {
   }
 
   try {
+    // Check whether the requested appointment slot is already occupied.
+    // Cancelled bookings do not block the slot.
+    const availabilityResult = await pool.query(
+      `SELECT id
+       FROM bookings
+       WHERE appointment_date = $1
+         AND appointment_time = $2
+         AND status <> 'cancelled'
+       LIMIT 1`,
+      [date, time]
+    );
+
+    if (availabilityResult.rows.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message:
+          "This appointment time is no longer available. Please choose another date or time.",
+      });
+    }
+
     const result = await pool.query(
       `INSERT INTO bookings
        (name, phone, registration, service, appointment_date, appointment_time)
