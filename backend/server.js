@@ -65,6 +65,61 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+
+app.post("/api/contact", async (req, res) => {
+  const { name, email, message } = req.body || {};
+
+  if (
+    typeof name !== "string" ||
+    typeof email !== "string" ||
+    typeof message !== "string" ||
+    !name.trim() ||
+    !email.trim() ||
+    !message.trim()
+  ) {
+    return res.status(400).json({
+      success: false,
+      message: "Name, email and message are required.",
+    });
+  }
+
+  if (name.trim().length > 100 ||
+    email.trim().length > 254 ||
+    message.trim().length > 3000) {
+    return res.status(400).json({
+      success: false,
+      message: "Please shorten your enquiry and try again.",
+    });
+  }
+
+  try {
+    await emailTransporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: process.env.EMAIL_USER,
+      replyTo: email.trim(),
+      subject: "New Website Enquiry - Garage Booking System",
+      text:
+        `New customer enquiry\n\n` +
+        `Name: ${name.trim()}\n` +
+        `Email: ${email.trim()}\n\n` +
+        `Message:\n${message.trim()}`,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Your enquiry has been sent successfully.",
+    });
+  } catch (error) {
+    console.error("Contact enquiry email failed:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to send your enquiry right now. Please try again later.",
+    });
+  }
+});
+
+
 app.post("/api/auth/register", async (req, res) => {
   const { full_name, email, password } = req.body || {};
 
@@ -743,6 +798,239 @@ app.post("/api/bookings", async (req, res) => {
   }
 });
 
+
+app.post(
+  "/api/bookings/:id/invoice",
+  authenticateToken,
+  async (req, res) => {
+    const client = await pool.connect();
+    let invoiceId;
+
+    try {
+      const { id } = req.params;
+
+      const bookingResult = await client.query(
+        "SELECT * FROM bookings WHERE id = $1",
+        [id]
+      );
+
+      if (bookingResult.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Booking not found.",
+        });
+      }
+
+      const booking = bookingResult.rows[0];
+
+      if (booking.status !== "completed") {
+        return res.status(400).json({
+          success: false,
+          message: "Only completed bookings can be invoiced.",
+        });
+      }
+
+      const prices = {
+        "General Service": 18900,
+        "Tyres & Wheels": 11000,
+        "Mechanical Repairs": 9900,
+      };
+
+      const totalCents = prices[booking.service];
+
+      if (!totalCents) {
+        return res.status(400).json({
+          success: false,
+          message: "No provisional price is configured for this service.",
+        });
+      }
+
+      await client.query("BEGIN");
+
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS booking_invoices (
+          id BIGSERIAL PRIMARY KEY,
+          booking_id INTEGER NOT NULL UNIQUE REFERENCES bookings(id),
+          invoice_number VARCHAR(50) NOT NULL UNIQUE,
+          total_cents INTEGER NOT NULL,
+          status VARCHAR(20) NOT NULL DEFAULT 'pending',
+          created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          sent_at TIMESTAMPTZ
+        )
+      `);
+
+      const existing = await client.query(
+        "SELECT id, status FROM booking_invoices WHERE booking_id = $1",
+        [booking.id]
+      );
+
+      if (existing.rows.length > 0) {
+        await client.query("ROLLBACK");
+
+        return res.status(409).json({
+          success: false,
+          message:
+            "An invoice record already exists for this booking. Duplicate invoices are not generated.",
+        });
+      }
+
+      const invoiceNumber =
+        "AA-" +
+        new Date().toISOString().slice(0, 10).replace(/-/g, "") +
+        "-" +
+        crypto.randomBytes(3).toString("hex").toUpperCase();
+
+      const invoiceResult = await client.query(
+        `INSERT INTO booking_invoices
+          (booking_id, invoice_number, total_cents, status)
+         VALUES ($1, $2, $3, 'pending')
+         RETURNING id`,
+        [booking.id, invoiceNumber, totalCents]
+      );
+
+      invoiceId = invoiceResult.rows[0].id;
+
+      await client.query("COMMIT");
+
+      const money = (cents) =>
+        (cents / 100).toLocaleString("en-AU", {
+          style: "currency",
+          currency: "AUD",
+        });
+
+      const escapeHtml = (value) =>
+        String(value ?? "").replace(/[&<>"']/g, (character) => ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;",
+        })[character]);
+
+      const serviceDescription =
+        booking.service === "Mechanical Repairs"
+          ? "Initial mechanical inspection (provisional)"
+          : booking.service === "Tyres & Wheels"
+            ? "One tyre — provisional fitted-tyre allowance"
+            : "Standard vehicle service (provisional)";
+
+      const gstCents = Math.round(totalCents / 11);
+      const subtotalCents = totalCents - gstCents;
+
+      const html = `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <title>Invoice ${escapeHtml(invoiceNumber)}</title>
+        </head>
+        <body style="margin:0;background:#f1f5f9;font-family:Arial,sans-serif;color:#172033;padding:24px 10px;">
+          <div style="max-width:650px;margin:auto;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #e2e8f0;">
+            <div style="background:#111827;padding:28px 32px;color:#ffffff;">
+              <p style="margin:0 0 8px;color:#93c5fd;font-size:12px;letter-spacing:2px;">ADELAIDE AUTOMOTIVE</p>
+              <h1 style="margin:0;font-size:28px;">Service invoice</h1>
+              <p style="margin:10px 0 0;color:#d1d5db;">Prototype invoice — provisional pricing</p>
+            </div>
+            <div style="padding:28px 32px;">
+              <p>Hello ${escapeHtml(booking.name)},</p>
+              <p>Your completed service has an invoice record. Please review the provisional charge below and contact the garage to confirm the final amount and payment arrangements.</p>
+              <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:18px;margin:22px 0;">
+                <p style="margin:0 0 8px;"><strong>Invoice reference:</strong> ${escapeHtml(invoiceNumber)}</p>
+                <p style="margin:0 0 8px;"><strong>Booking reference:</strong> ${escapeHtml(booking.id)}</p>
+                <p style="margin:0 0 8px;"><strong>Vehicle:</strong> ${escapeHtml(booking.registration)}</p>
+                <p style="margin:0;"><strong>Service date:</strong> ${escapeHtml(booking.appointment_date)}</p>
+              </div>
+              <table style="width:100%;border-collapse:collapse;font-size:14px;">
+                <thead>
+                  <tr style="background:#f1f5f9;text-align:left;">
+                    <th style="padding:12px 8px;">Description</th>
+                    <th style="padding:12px 8px;text-align:right;">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td style="padding:16px 8px;border-bottom:1px solid #e2e8f0;">${escapeHtml(serviceDescription)}</td>
+                    <td style="padding:16px 8px;text-align:right;border-bottom:1px solid #e2e8f0;">${money(totalCents)}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div style="margin-top:18px;text-align:right;line-height:1.9;">
+                <div>Illustrative GST component: ${money(gstCents)}</div>
+                <div style="font-size:22px;font-weight:bold;color:#111827;">Provisional total: ${money(totalCents)}</div>
+              </div>
+              <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:14px;margin-top:24px;font-size:13px;line-height:1.6;">
+                <strong>Important:</strong> This is a prototype invoice using hypothetical market-based prices. It is not confirmation of an amount owed or proof of payment. GST treatment and the final charge must be verified by the garage before real-world use.
+              </div>
+              <p style="margin-top:28px;">Regards,<br><strong>Adelaide Automotive</strong></p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+
+      const text =
+        `Adelaide Automotive — Provisional Service Invoice\n\n` +
+        `Invoice reference: ${invoiceNumber}\n` +
+        `Booking reference: ${booking.id}\n` +
+        `Customer: ${booking.name}\n` +
+        `Vehicle: ${booking.registration}\n` +
+        `Service: ${serviceDescription}\n` +
+        `Illustrative GST component: ${money(gstCents)}\n` +
+        `Provisional total: ${money(totalCents)}\n\n` +
+        "Prototype pricing only. Confirm the final amount and GST treatment with the garage. This email is not proof of payment.";
+
+      await emailTransporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to: booking.email,
+        subject: `Provisional Service Invoice ${invoiceNumber} - Adelaide Automotive`,
+        text,
+        html,
+      });
+
+      await pool.query(
+        `UPDATE booking_invoices
+         SET status = 'sent', sent_at = CURRENT_TIMESTAMP
+         WHERE id = $1`,
+        [invoiceId]
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: "Provisional invoice email sent successfully.",
+        invoiceNumber,
+      });
+    } catch (error) {
+      try {
+        await client.query("ROLLBACK");
+      } catch (rollbackError) {
+        console.error("Invoice transaction rollback failed:", rollbackError);
+      }
+
+      console.error("Invoice generation or email failed:", error);
+
+      if (invoiceId) {
+        try {
+          await pool.query(
+            `UPDATE booking_invoices SET status = 'failed' WHERE id = $1`,
+            [invoiceId]
+          );
+        } catch (updateError) {
+          console.error("Invoice failure status update failed:", updateError);
+        }
+      }
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Invoice email could not be completed. Check the server log before retrying.",
+      });
+    } finally {
+      client.release();
+    }
+  }
+);
+
 app.get("/api/bookings", authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(
@@ -773,7 +1061,12 @@ app.patch(
       const { id } = req.params;
       const { status } = req.body;
 
-      const allowedStatuses = ["pending", "confirmed", "cancelled"];
+      const allowedStatuses = [
+        "pending",
+        "confirmed",
+        "cancelled",
+        "completed",
+      ];
 
       if (!allowedStatuses.includes(status)) {
         return res.status(400).json({
@@ -795,6 +1088,57 @@ app.patch(
           success: false,
           message: "Booking not found",
         });
+      }
+
+      const booking = result.rows[0];
+
+      if (status === "cancelled" || status === "completed") {
+        try {
+          const isCancelled = status === "cancelled";
+
+          await emailTransporter.sendMail({
+            from: process.env.EMAIL_USER,
+            to: booking.email,
+            subject: isCancelled
+              ? "Appointment Cancellation - Garage Booking System"
+              : "Service Completed - Garage Booking System",
+
+            text:
+              `Hello ${booking.name},\n\n` +
+              (isCancelled
+                ? "Your appointment has been cancelled."
+                : "Your vehicle service has been marked as completed.") +
+              `\n\nService: ${booking.service}\n` +
+              `Vehicle Registration: ${booking.registration}\n` +
+              `Date: ${booking.appointment_date}\n` +
+              `Time: ${booking.appointment_time}\n\n` +
+              "Regards,\nGarage Booking System",
+
+            html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 30px auto; padding: 24px; color: #1f2937;">
+          <h2 style="color: #111827;">
+            ${isCancelled ? "Appointment Cancelled" : "Service Completed"}
+          </h2>
+          <p>Hello ${booking.name},</p>
+          <p>
+            ${isCancelled
+                ? "Your appointment has been cancelled."
+                : "Your vehicle service has been marked as completed."
+              }
+          </p>
+          <p><strong>Service:</strong> ${booking.service}</p>
+          <p><strong>Vehicle Registration:</strong> ${booking.registration}</p>
+          <p><strong>Date:</strong> ${booking.appointment_date}</p>
+          <p><strong>Time:</strong> ${booking.appointment_time}</p>
+          <p>Regards,<br>Garage Booking System</p>
+        </div>
+      `,
+          });
+
+          console.log(`${status} notification email sent:`, booking.email);
+        } catch (emailError) {
+          console.error(`${status} notification email failed:`, emailError);
+        }
       }
 
       res.json({

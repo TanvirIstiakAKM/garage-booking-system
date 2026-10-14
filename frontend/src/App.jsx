@@ -455,6 +455,17 @@ function App() {
   const [bookingStatus, setBookingStatus] = useState('idle')
   const [bookingMessage, setBookingMessage] = useState('')
 
+
+  const [contactFormData, setContactFormData] = useState({
+    name: '',
+    email: '',
+    message: '',
+  })
+
+  const [contactStatus, setContactStatus] = useState('idle')
+  const [contactMessage, setContactMessage] = useState('')
+
+
   const handleChange = (event) => {
     const { name, value } = event.target
 
@@ -508,6 +519,60 @@ function App() {
     }
   }
 
+
+  const handleContactChange = (event) => {
+    const { name, value } = event.target
+
+    setContactFormData((currentData) => ({
+      ...currentData,
+      [name]: value,
+    }))
+
+    setContactStatus('idle')
+    setContactMessage('')
+  }
+
+  const handleContactSubmit = async (event) => {
+    event.preventDefault()
+
+    setContactStatus('submitting')
+    setContactMessage('Sending your enquiry...')
+
+    try {
+      const response = await fetch('http://localhost:5000/api/contact', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(contactFormData),
+      })
+
+      const data = await response.json()
+
+      if (response.ok && data.success) {
+        setContactStatus('success')
+        setContactMessage(data.message)
+        setContactFormData({
+          name: '',
+          email: '',
+          message: '',
+        })
+      } else {
+        setContactStatus('error')
+        setContactMessage(
+          data.message || 'Unable to send your enquiry.'
+        )
+      }
+    } catch (error) {
+      console.error('Contact enquiry failed:', error)
+      setContactStatus('error')
+      setContactMessage(
+        'Unable to connect to the server. Please try again later.'
+      )
+    }
+  }
+
+
   const today = new Date().toISOString().split('T')[0]
 
   const currentPath = window.location.pathname
@@ -540,6 +605,7 @@ function App() {
           <a href="#home">Home</a>
           <a href="#services">Services</a>
           <a href="#booking">Book a Service</a>
+          <a href="#contact">Contact</a>
         </nav>
       </header>
 
@@ -802,6 +868,84 @@ function App() {
             )}
           </form>
         </section>
+
+
+        <section id="contact" className="booking">
+          <div className="booking-header">
+            <p className="eyebrow">GET IN TOUCH</p>
+            <h2>Contact Us</h2>
+            <p>Have a question? Send us an enquiry.</p>
+          </div>
+
+          <form className="booking-form" onSubmit={handleContactSubmit}>
+            <div className="form-group">
+              <label htmlFor="contact-name">Your Name</label>
+              <input
+                id="contact-name"
+                name="name"
+                type="text"
+                value={contactFormData.name}
+                onChange={handleContactChange}
+                maxLength={100}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="contact-email">Email Address</label>
+              <input
+                id="contact-email"
+                name="email"
+                type="email"
+                value={contactFormData.email}
+                onChange={handleContactChange}
+                maxLength={254}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="contact-message">Your Message</label>
+              <textarea
+                id="contact-message"
+                name="message"
+                rows={5}
+                value={contactFormData.message}
+                onChange={handleContactChange}
+                maxLength={3000}
+                required
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="primary-button booking-button"
+              disabled={contactStatus === 'submitting'}
+            >
+              {contactStatus === 'submitting'
+                ? 'Sending Enquiry...'
+                : 'Send Enquiry'}
+            </button>
+
+            {contactStatus !== 'idle' && (
+              <div
+                className={
+                  contactStatus === 'error'
+                    ? 'booking-error'
+                    : contactStatus === 'success'
+                      ? 'booking-success'
+                      : 'booking-submitting'
+                }
+                role={contactStatus === 'error' ? 'alert' : 'status'}
+                aria-live="polite"
+              >
+                <span>{contactMessage}</span>
+              </div>
+            )}
+          </form>
+        </section>
+
+
       </main>
 
       <footer>

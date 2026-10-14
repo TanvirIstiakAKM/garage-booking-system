@@ -6,6 +6,9 @@ function AdminDashboard() {
     const [error, setError] = useState('')
     const [searchTerm, setSearchTerm] = useState('')
     const [statusFilter, setStatusFilter] = useState('all')
+    const [invoiceLoadingId, setInvoiceLoadingId] = useState(null)
+    const [invoiceConfirmId, setInvoiceConfirmId] = useState(null)
+    const [invoiceNotice, setInvoiceNotice] = useState(null)
 
     const totalBookings = bookings.length
 
@@ -19,6 +22,10 @@ function AdminDashboard() {
 
     const cancelledBookings = bookings.filter(
         (booking) => booking.status === 'cancelled'
+    ).length
+
+    const completedBookings = bookings.filter(
+        (booking) => booking.status === 'completed'
     ).length
 
     const filteredBookings = bookings.filter((booking) => {
@@ -97,6 +104,54 @@ function AdminDashboard() {
         }
     }
 
+
+    const sendInvoice = async (id) => {
+        const token = localStorage.getItem('garage_staff_token')
+
+        if (!token) {
+            setInvoiceNotice({
+                type: 'error',
+                message: 'Please log in again to continue.',
+            })
+            return
+        }
+
+        setInvoiceLoadingId(id)
+
+        try {
+            const response = await fetch(
+                `http://localhost:5000/api/bookings/${id}/invoice`,
+                {
+                    method: 'POST',
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                }
+            )
+
+            const data = await response.json()
+
+            if (!response.ok) {
+                throw new Error(
+                    data.message || 'Unable to send invoice.'
+                )
+            }
+
+            setInvoiceNotice({
+                type: 'success',
+                message: `Invoice ${data.invoiceNumber} was emailed successfully.`,
+            })
+        } catch (error) {
+            setInvoiceNotice({
+                type: 'error',
+                message: error.message || 'Unable to send invoice.',
+            })
+        } finally {
+            setInvoiceLoadingId(null)
+        }
+    }
+
+
     const fetchBookings = async () => {
         try {
             setLoading(true)
@@ -133,6 +188,29 @@ function AdminDashboard() {
 
     return (
         <section className="admin-dashboard">
+
+            {invoiceNotice && (
+                <div
+                    className={`invoice-notice ${invoiceNotice.type}`}
+                    role="status"
+                    aria-live="polite"
+                >
+                    <span>
+                        {invoiceNotice.type === 'success' ? '✓' : '⚠'}
+                    </span>
+
+                    <p>{invoiceNotice.message}</p>
+
+                    <button
+                        type="button"
+                        onClick={() => setInvoiceNotice(null)}
+                        aria-label="Dismiss notification"
+                    >
+                        ×
+                    </button>
+                </div>
+            )}
+
             <div className="admin-header">
                 <div>
                     <p className="eyebrow">STAFF PORTAL</p>
@@ -162,6 +240,13 @@ function AdminDashboard() {
                         <strong>{cancelledBookings}</strong>
                         <span>Cancelled</span>
                     </div>
+
+
+                    <div className="summary-card">
+                        <strong>{completedBookings}</strong>
+                        <span>Completed</span>
+                    </div>
+
                 </div>
             </div>
 
@@ -203,6 +288,7 @@ function AdminDashboard() {
                             <option value="pending">Pending</option>
                             <option value="confirmed">Confirmed</option>
                             <option value="cancelled">Cancelled</option>
+                            <option value="completed">Completed</option>
                         </select>
 
                         <button
@@ -261,6 +347,31 @@ function AdminDashboard() {
                                                         </button>
                                                     </>
                                                 )}
+
+
+                                                {booking.status === 'confirmed' && (
+                                                    <button
+                                                        className="confirm-button"
+                                                        onClick={() => updateBookingStatus(booking.id, 'completed')}
+                                                    >
+                                                        Mark Completed
+                                                    </button>
+                                                )}
+
+
+                                                {booking.status === 'completed' && (
+                                                    <button
+                                                        className="confirm-button"
+                                                        onClick={() => setInvoiceConfirmId(booking.id)}
+                                                        disabled={invoiceLoadingId === booking.id}
+                                                    >
+                                                        {invoiceLoadingId === booking.id
+                                                            ? 'Sending...'
+                                                            : 'Generate & Send Invoice'}
+                                                    </button>
+                                                )}
+
+
                                             </div>
                                         </td>
                                     </tr>
@@ -274,6 +385,63 @@ function AdminDashboard() {
                             No bookings match your search or filter.
                         </p>
                     )}
+
+
+                    {invoiceConfirmId !== null && (
+                        <div className="invoice-modal-overlay">
+                            <div
+                                className="invoice-modal"
+                                role="dialog"
+                                aria-modal="true"
+                                aria-labelledby="invoice-modal-title"
+                            >
+                                <div className="invoice-modal-icon">✉</div>
+
+                                <h2 id="invoice-modal-title">Send provisional invoice?</h2>
+
+                                <p>
+                                    You are about to email a provisional invoice to:
+                                </p>
+
+                                <p className="invoice-modal-customer">
+                                    {bookings.find(
+                                        (booking) => booking.id === invoiceConfirmId
+                                    )?.name}
+                                </p>
+
+                                <p className="invoice-modal-note">
+                                    The invoice uses hypothetical prices. Please verify
+                                    the details before sending. Each booking can have only
+                                    one invoice record.
+                                </p>
+
+                                <div className="invoice-modal-actions">
+                                    <button
+                                        type="button"
+                                        className="invoice-modal-cancel"
+                                        onClick={() => setInvoiceConfirmId(null)}
+                                        disabled={invoiceLoadingId !== null}
+                                    >
+                                        Go Back
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        className="confirm-button"
+                                        onClick={async () => {
+                                            const id = invoiceConfirmId
+                                            setInvoiceConfirmId(null)
+                                            await sendInvoice(id)
+                                        }}
+                                        disabled={invoiceLoadingId !== null}
+                                    >
+                                        Confirm & Send
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                 </>
             )}
         </section>
