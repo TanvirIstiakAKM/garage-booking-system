@@ -502,6 +502,7 @@ app.post("/api/auth/login", async (req, res) => {
 app.post("/api/bookings", async (req, res) => {
   const {
     name,
+    email,
     phone,
     registration,
     service,
@@ -509,10 +510,10 @@ app.post("/api/bookings", async (req, res) => {
     time,
   } = req.body;
 
-  if (!name || !phone || !registration || !service || !date || !time) {
+  if (!name || !email || !phone || !registration || !service || !date || !time) {
     return res.status(400).json({
       success: false,
-      message: "Please provide all booking details",
+      message: "Please provide all booking details including email",
     });
   }
 
@@ -539,23 +540,203 @@ app.post("/api/bookings", async (req, res) => {
 
     const result = await pool.query(
       `INSERT INTO bookings
-       (name, phone, registration, service, appointment_date, appointment_time)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING *`,
-      [name, phone, registration, service, date, time]
+   (name, email, phone, registration, service, appointment_date, appointment_time)
+   VALUES ($1, $2, $3, $4, $5, $6, $7)
+   RETURNING *`,
+      [name, email, phone, registration, service, date, time]
     );
 
-    console.log("Booking saved to PostgreSQL:", result.rows[0]);
+    const booking = result.rows[0];
 
-    res.status(201).json({
-      success: true,
-      message: "Booking saved successfully",
-      booking: result.rows[0],
-    });
+    console.log("Booking saved to PostgreSQL:", booking);
+
+    try {
+      await emailTransporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to: booking.email,
+        subject: "Booking Confirmation - Garage Booking System",
+
+        text:
+          `Hello ${booking.name},\n\n` +
+          `Thank you for booking a service with Garage Booking System.\n\n` +
+          `Your appointment details are:\n\n` +
+          `Service: ${booking.service}\n` +
+          `Vehicle Registration: ${booking.registration}\n` +
+          `Date: ${booking.appointment_date}\n` +
+          `Time: ${booking.appointment_time}\n\n` +
+          `Your booking has been received successfully and is currently pending confirmation by our staff.\n\n` +
+          `Regards,\n` +
+          `Garage Booking System`,
+
+        html: `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Booking Confirmation</title>
+      </head>
+
+      <body style="
+        margin: 0;
+        padding: 0;
+        background-color: #f4f6f8;
+        font-family: Arial, Helvetica, sans-serif;
+        color: #1f2937;
+      ">
+
+        <div style="
+          max-width: 600px;
+          margin: 40px auto;
+          padding: 0 20px;
+        ">
+
+          <div style="
+            background-color: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+          ">
+
+            <div style="
+              background-color: #111827;
+              padding: 28px 30px;
+              text-align: center;
+            ">
+              <h1 style="
+                margin: 0;
+                color: #ffffff;
+                font-size: 24px;
+              ">
+                Garage Booking System
+              </h1>
+
+              <p style="
+                margin: 8px 0 0;
+                color: #d1d5db;
+                font-size: 14px;
+              ">
+                Booking Confirmation
+              </p>
+            </div>
+
+            <div style="
+              padding: 35px 30px;
+            ">
+
+              <h2 style="
+                margin-top: 0;
+                font-size: 22px;
+                color: #111827;
+              ">
+                Your booking has been received
+              </h2>
+
+              <p style="
+                font-size: 16px;
+                line-height: 1.6;
+              ">
+                Hello <strong>${booking.name}</strong>,
+              </p>
+
+              <p style="
+                font-size: 16px;
+                line-height: 1.6;
+              ">
+                Thank you for booking a service with Garage Booking System.
+                Your appointment request has been received successfully.
+              </p>
+
+              <div style="
+                background-color: #f9fafb;
+                border-radius: 8px;
+                padding: 20px;
+                margin: 25px 0;
+              ">
+
+                <p style="margin: 0 0 10px;">
+                  <strong>Service:</strong> ${booking.service}
+                </p>
+
+                <p style="margin: 0 0 10px;">
+                  <strong>Vehicle Registration:</strong> ${booking.registration}
+                </p>
+
+                <p style="margin: 0 0 10px;">
+                  <strong>Date:</strong> ${booking.appointment_date}
+                </p>
+
+                <p style="margin: 0;">
+                  <strong>Time:</strong> ${booking.appointment_time}
+                </p>
+
+              </div>
+
+              <p style="
+                font-size: 15px;
+                line-height: 1.6;
+                color: #4b5563;
+              ">
+                Your booking is currently <strong>pending confirmation</strong>.
+                Our staff will review the appointment and update its status.
+              </p>
+
+              <p style="
+                margin-top: 30px;
+                font-size: 15px;
+                line-height: 1.5;
+              ">
+                Regards,<br>
+                <strong>Garage Booking System</strong>
+              </p>
+
+            </div>
+
+            <div style="
+              background-color: #f9fafb;
+              padding: 18px 30px;
+              text-align: center;
+              border-top: 1px solid #e5e7eb;
+            ">
+              <p style="
+                margin: 0;
+                font-size: 12px;
+                color: #9ca3af;
+              ">
+                This is an automated message. Please do not reply to this email.
+              </p>
+            </div>
+
+          </div>
+
+        </div>
+
+      </body>
+      </html>
+    `,
+      });
+
+      console.log("Booking confirmation email sent:", booking.email);
+
+      return res.status(201).json({
+        success: true,
+        message: "Booking saved successfully and confirmation email sent",
+        booking,
+      });
+    } catch (emailError) {
+      console.error("Booking confirmation email failed:", emailError);
+
+      return res.status(201).json({
+        success: true,
+        message:
+          "Booking saved successfully, but the confirmation email could not be sent",
+        booking,
+      });
+    }
   } catch (error) {
     console.error("Database insert failed:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Unable to save booking to the database",
     });

@@ -444,6 +444,7 @@ function StaffLogin() {
 function App() {
   const [formData, setFormData] = useState({
     name: '',
+    email: '',
     phone: '',
     registration: '',
     service: '',
@@ -451,7 +452,8 @@ function App() {
     time: '',
   })
 
-  const [submitted, setSubmitted] = useState(false)
+  const [bookingStatus, setBookingStatus] = useState('idle')
+  const [bookingMessage, setBookingMessage] = useState('')
 
   const handleChange = (event) => {
     const { name, value } = event.target
@@ -461,11 +463,15 @@ function App() {
       [name]: value,
     }))
 
-    setSubmitted(false)
+    setBookingStatus('idle')
+    setBookingMessage('')
   }
 
   const handleSubmit = async (event) => {
     event.preventDefault()
+
+    setBookingStatus('submitting')
+    setBookingMessage('Submitting your booking...')
 
     try {
       const response = await fetch('http://localhost:5000/api/bookings', {
@@ -479,13 +485,26 @@ function App() {
       const data = await response.json()
 
       if (data.success) {
-        setSubmitted(true)
+        const emailFailed = data.message
+          ?.toLowerCase()
+          .includes('email could not be sent')
+
+        setBookingStatus(emailFailed ? 'warning' : 'success')
+        setBookingMessage(
+          data.message || 'Your booking was submitted successfully.'
+        )
       } else {
-        alert(data.message)
+        setBookingStatus('error')
+        setBookingMessage(
+          data.message || 'Unable to submit your booking.'
+        )
       }
     } catch (error) {
       console.error('Booking submission failed:', error)
-      alert('Unable to connect to the booking server.')
+      setBookingStatus('error')
+      setBookingMessage(
+        'Unable to connect to the booking server. Please try again later.'
+      )
     }
   }
 
@@ -628,6 +647,22 @@ function App() {
             </div>
 
             <div className="form-group">
+              <label htmlFor="email">
+                Email Address
+              </label>
+
+              <input
+                id="email"
+                name="email"
+                type="email"
+                placeholder="Enter your email address"
+                value={formData.email}
+                onChange={handleChange}
+                required
+              />
+            </div>
+
+            <div className="form-group">
               <label htmlFor="phone">
                 Phone Number
               </label>
@@ -723,18 +758,46 @@ function App() {
             <button
               type="submit"
               className="primary-button booking-button"
+              disabled={bookingStatus === 'submitting'}
             >
-              Submit Booking
+              {bookingStatus === 'submitting'
+                ? 'Submitting Booking...'
+                : 'Submit Booking'}
             </button>
 
-            {submitted && (
-              <div className="booking-success">
-                <strong>Booking details captured.</strong>
+            {bookingStatus !== 'idle' && (
+              <div
 
-                <span>
-                  We are ready to connect this form to the
-                  garage booking API.
-                </span>
+                className={
+                  bookingStatus === 'error'
+                    ? 'booking-error'
+                    : bookingStatus === 'warning'
+                      ? 'booking-warning'
+                      : bookingStatus === 'submitting'
+                        ? 'booking-submitting'
+                        : 'booking-success'
+                }
+
+                role={bookingStatus === 'error' ? 'alert' : 'status'}
+                aria-live="polite"
+              >
+                {bookingStatus === 'submitting' && (
+                  <strong>Submitting booking...</strong>
+                )}
+
+                {bookingStatus === 'success' && (
+                  <strong>Booking submitted successfully.</strong>
+                )}
+
+                {bookingStatus === 'warning' && (
+                  <strong>Booking saved — email notification issue.</strong>
+                )}
+
+                {bookingStatus === 'error' && (
+                  <strong>Booking unsuccessful.</strong>
+                )}
+
+                <span>{bookingMessage}</span>
               </div>
             )}
           </form>
