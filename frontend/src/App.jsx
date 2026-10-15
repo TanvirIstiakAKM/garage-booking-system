@@ -595,52 +595,213 @@ function App() {
 
   return (
     <div className="app">
-      <header className="navbar">
-        <div className="brand">
-          <span className="brand-icon">🔧</span>
-          <span>Garage Booking</span>
-        </div>
 
-        <nav>
+      <header className="navbar">
+        <a href="#home" className="brand" aria-label="Adelaide Automotive home">
+          <span className="brand-icon" aria-hidden="true">🚘</span>
+          <span>Adelaide Automotive</span>
+        </a>
+
+        <nav aria-label="Main navigation">
           <a href="#home">Home</a>
           <a href="#services">Services</a>
           <a href="#booking">Book a Service</a>
           <a href="#contact">Contact</a>
+          <a href="/login" className="nav-login">Staff Login</a>
         </nav>
       </header>
 
+
       <main>
+
         <section id="home" className="hero">
           <div className="hero-content">
-            <p className="eyebrow">PROFESSIONAL AUTO CARE</p>
+            <p className="eyebrow">PROFESSIONAL CAR CARE IN ADELAIDE</p>
 
             <h1>
-              Your Car.
+              Reliable Service
               <br />
-              Our Care.
+              for a <span>Smoother Drive</span>
             </h1>
 
             <p className="hero-text">
-              Book your vehicle service quickly and easily with our
-              professional garage booking system.
+              Quality maintenance, experienced technicians and trusted service
+              you can count on. Book your next service with Adelaide Automotive.
             </p>
 
-            <a href="#booking" className="primary-button">
-              Book a Service
-            </a>
+            <div className="hero-actions">
+              <a href="#booking" className="primary-button">
+                Book a Service <span aria-hidden="true">→</span>
+              </a>
+              <a href="#contact" className="secondary-button">
+                Contact Us
+              </a>
+            </div>
+
+            <div className="hero-trust">
+              <div>
+                <span aria-hidden="true">✓</span>
+                <p>Quality maintenance</p>
+              </div>
+              <div>
+                <span aria-hidden="true">✓</span>
+                <p>Convenient online booking</p>
+              </div>
+              <div>
+                <span aria-hidden="true">✓</span>
+                <p>Email booking updates</p>
+              </div>
+            </div>
           </div>
 
-          <div className="hero-card">
-            <div className="car-icon">🚗</div>
+          
+<div id="booking" className="hero-card hero-booking-card">
+  <div className="hero-booking-heading">
+    <p className="eyebrow">BOOK ONLINE</p>
+    <h2>Book Your Service</h2>
+    <p>Choose your vehicle service and preferred appointment time.</p>
+  </div>
 
-            <h2>Reliable Vehicle Service</h2>
+  <form className="hero-booking-form" onSubmit={handleSubmit}>
+    <div className="form-group">
+      <label htmlFor="hero-name">Customer Name</label>
+      <input
+        id="hero-name"
+        name="name"
+        type="text"
+        placeholder="Your full name"
+        value={formData.name}
+        onChange={handleChange}
+        required
+      />
+    </div>
 
-            <p>
-              Keep your vehicle running safely with professional garage
-              services.
-            </p>
-          </div>
+    <div className="form-group">
+      <label htmlFor="hero-email">Email Address</label>
+      <input
+        id="hero-email"
+        name="email"
+        type="email"
+        placeholder="you@example.com"
+        value={formData.email}
+        onChange={handleChange}
+        required
+      />
+    </div>
+
+    <div className="form-group">
+      <label htmlFor="hero-phone">Phone Number</label>
+      <input
+        id="hero-phone"
+        name="phone"
+        type="tel"
+        placeholder="Your phone number"
+        value={formData.phone}
+        onChange={handleChange}
+        required
+      />
+    </div>
+
+    <div className="form-group">
+      <label htmlFor="hero-registration">Vehicle Registration</label>
+      <input
+        id="hero-registration"
+        name="registration"
+        type="text"
+        placeholder="e.g. ABC123"
+        value={formData.registration}
+        onChange={handleChange}
+        required
+      />
+    </div>
+
+    <div className="form-group">
+      <label htmlFor="hero-service">Service Required</label>
+      <select
+        id="hero-service"
+        name="service"
+        value={formData.service}
+        onChange={handleChange}
+        required
+      >
+        <option value="" disabled>Select a service</option>
+        <option value="General Service">General Service</option>
+        <option value="Tyres & Wheels">Tyres & Wheels</option>
+        <option value="Mechanical Repairs">Mechanical Repairs</option>
+      </select>
+    </div>
+
+    <div className="hero-date-time">
+      <div className="form-group">
+        <label htmlFor="hero-date">Preferred Date</label>
+        <input
+          id="hero-date"
+          name="date"
+          type="date"
+          min={today}
+          value={formData.date}
+          onChange={handleChange}
+          required
+        />
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="hero-time">Preferred Time</label>
+        <input
+          id="hero-time"
+          name="time"
+          type="time"
+          value={formData.time}
+          onChange={handleChange}
+          required
+        />
+      </div>
+    </div>
+
+    <button
+      type="submit"
+      className="primary-button booking-button"
+      disabled={bookingStatus === 'submitting'}
+    >
+      {bookingStatus === 'submitting'
+        ? 'Submitting Booking...'
+        : 'Request Appointment →'}
+    </button>
+
+    {bookingStatus !== 'idle' && (
+      <div
+        className={
+          bookingStatus === 'error'
+            ? 'booking-error'
+            : bookingStatus === 'warning'
+              ? 'booking-warning'
+              : bookingStatus === 'submitting'
+                ? 'booking-submitting'
+                : 'booking-success'
+        }
+        role={bookingStatus === 'error' ? 'alert' : 'status'}
+        aria-live="polite"
+      >
+        {bookingStatus === 'submitting' && (
+          <strong>Submitting booking...</strong>
+        )}
+        {bookingStatus === 'success' && (
+          <strong>Booking submitted successfully.</strong>
+        )}
+        {bookingStatus === 'warning' && (
+          <strong>Booking saved — email notification issue.</strong>
+        )}
+        {bookingStatus === 'error' && (
+          <strong>Booking unsuccessful.</strong>
+        )}
+        <span>{bookingMessage}</span>
+      </div>
+    )}
+  </form>
+</div>
+
         </section>
+
 
         <section id="services" className="services">
           <p className="eyebrow">OUR SERVICES</p>
@@ -679,196 +840,6 @@ function App() {
             </div>
           </div>
         </section>
-
-        <section id="booking" className="booking">
-          <div className="booking-header">
-            <p className="eyebrow">ONLINE BOOKING</p>
-
-            <h2>Book Your Vehicle Service</h2>
-
-            <p>
-              Tell us a little about your vehicle and preferred
-              service time.
-            </p>
-          </div>
-
-          <form
-            className="booking-form"
-            onSubmit={handleSubmit}
-          >
-            <div className="form-group">
-              <label htmlFor="name">
-                Customer Name
-              </label>
-
-              <input
-                id="name"
-                name="name"
-                type="text"
-                placeholder="Enter your full name"
-                value={formData.name}
-                onChange={handleChange}
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="email">
-                Email Address
-              </label>
-
-              <input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="Enter your email address"
-                value={formData.email}
-                onChange={handleChange}
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="phone">
-                Phone Number
-              </label>
-
-              <input
-                id="phone"
-                name="phone"
-                type="tel"
-                placeholder="Enter your phone number"
-                value={formData.phone}
-                onChange={handleChange}
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="registration">
-                Vehicle Registration
-              </label>
-
-              <input
-                id="registration"
-                name="registration"
-                type="text"
-                placeholder="e.g. ABC-123"
-                value={formData.registration}
-                onChange={handleChange}
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="service">
-                Service Required
-              </label>
-
-              <select
-                id="service"
-                name="service"
-                value={formData.service}
-                onChange={handleChange}
-                required
-              >
-                <option value="" disabled>
-                  Select a service
-                </option>
-
-                <option value="General Service">
-                  General Service
-                </option>
-
-                <option value="Tyres & Wheels">
-                  Tyres & Wheels
-                </option>
-
-                <option value="Mechanical Repairs">
-                  Mechanical Repairs
-                </option>
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="date">
-                Preferred Date
-              </label>
-
-              <input
-                id="date"
-                name="date"
-                type="date"
-                min={today}
-                value={formData.date}
-                onChange={handleChange}
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="time">
-                Preferred Time
-              </label>
-
-              <input
-                id="time"
-                name="time"
-                type="time"
-                value={formData.time}
-                onChange={handleChange}
-                required
-              />
-            </div>
-
-            <button
-              type="submit"
-              className="primary-button booking-button"
-              disabled={bookingStatus === 'submitting'}
-            >
-              {bookingStatus === 'submitting'
-                ? 'Submitting Booking...'
-                : 'Submit Booking'}
-            </button>
-
-            {bookingStatus !== 'idle' && (
-              <div
-
-                className={
-                  bookingStatus === 'error'
-                    ? 'booking-error'
-                    : bookingStatus === 'warning'
-                      ? 'booking-warning'
-                      : bookingStatus === 'submitting'
-                        ? 'booking-submitting'
-                        : 'booking-success'
-                }
-
-                role={bookingStatus === 'error' ? 'alert' : 'status'}
-                aria-live="polite"
-              >
-                {bookingStatus === 'submitting' && (
-                  <strong>Submitting booking...</strong>
-                )}
-
-                {bookingStatus === 'success' && (
-                  <strong>Booking submitted successfully.</strong>
-                )}
-
-                {bookingStatus === 'warning' && (
-                  <strong>Booking saved — email notification issue.</strong>
-                )}
-
-                {bookingStatus === 'error' && (
-                  <strong>Booking unsuccessful.</strong>
-                )}
-
-                <span>{bookingMessage}</span>
-              </div>
-            )}
-          </form>
-        </section>
-
 
         <section id="contact" className="booking">
           <div className="booking-header">
